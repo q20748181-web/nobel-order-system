@@ -1,27 +1,57 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Nobel订单管理系统 - Streamlit后端服务
-支持多用户、多设备数据共享
+Nobel订单管理系统 - Streamlit后端服务（本地版本）
+使用本地文件存储，无需配置数据库
 """
 
 import os
 import json
 from datetime import datetime
-from supabase import create_client
-
 import streamlit as st
 import pandas as pd
 
-# 配置Supabase客户端
-supabase = create_client(
-    os.getenv("COZE_SUPABASE_URL"),
-    os.getenv("COZE_SUPABASE_ANON_KEY")
-)
+# 数据文件路径
+DATA_DIR = "data"
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+CUSTOMERS_FILE = os.path.join(DATA_DIR, "customers.json")
+ORDERS_FILE = os.path.join(DATA_DIR, "orders.json")
+
+# 确保数据目录存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# 初始化数据文件
+def init_data():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([{"id": 1, "username": "admin", "password": "admin123", "role": "管理员"}], f, ensure_ascii=False, indent=2)
+
+    if not os.path.exists(CUSTOMERS_FILE):
+        with open(CUSTOMERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+
+    if not os.path.exists(ORDERS_FILE):
+        with open(ORDERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+
+# 读取数据
+def load_data(filename):
+    if not os.path.exists(filename):
+        return []
+    with open(filename, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+# 保存数据
+def save_data(filename, data):
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# 初始化数据
+init_data()
 
 # 页面配置
 st.set_page_config(
-    page_title="Nobel订单管理 API",
+    page_title="Nobel订单管理系统",
     page_icon="🏠",
     layout="wide"
 )
@@ -49,43 +79,41 @@ if 'current_user' not in st.session_state:
 
 # 登录函数
 def login(username, password):
-    try:
-        response = supabase.table('users').select('*').eq('username', username).execute()
+    users = load_data(USERS_FILE)
 
-        if not response.data:
-            return False, "用户不存在"
+    for user in users:
+        if user['username'] == username and user['password'] == password:
+            st.session_state.current_user = user
+            return True, "登录成功"
 
-        user = response.data[0]
-        if user['password'] != password:
-            return False, "密码错误"
-
-        st.session_state.current_user = user
-        return True, "登录成功"
-    except Exception as e:
-        return False, f"登录失败：{str(e)}"
+    return False, "用户名或密码错误"
 
 # 登录页面
 if st.session_state.current_user is None:
     st.markdown("""
     <div style='max-width: 450px; margin: 80px auto; padding: 50px; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);'>
-        <h2 style='text-align: center; color: #667eea; margin-bottom: 30px; font-size: 32px;'>🏠 Nobel订单管理</h2>
+        <h2 style='text-align: center; color: #667eea; margin-bottom: 30px; font-size: 32px;'>🏠 Nobel订单管理系统</h2>
+        <p style='text-align: center; color: #888; margin-bottom: 20px;'>欢迎使用订单管理系统</p>
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        username = st.text_input("用户名", key="login_username")
-        password = st.text_input("密码", type="password", key="login_password")
+        username = st.text_input("👤 用户名", key="login_username")
+        password = st.text_input("🔒 密码", type="password", key="login_password")
 
-        if st.button("🔐 登录", use_container_width=True):
-            success, message = login(username, password)
-            if success:
-                st.success(message)
-                st.rerun()
-            else:
-                st.error(message)
+        col_login1, col_login2, col_login3 = st.columns([1, 2, 1])
+        with col_login2:
+            if st.button("🔐 登录", use_container_width=True):
+                success, message = login(username, password)
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
 
-        st.info("默认账号：admin / admin")
+        st.info("📌 默认账号：admin / admin123")
+
 else:
     # 已登录，显示主界面
     user = st.session_state.current_user
@@ -93,9 +121,9 @@ else:
     # 侧边栏
     with st.sidebar:
         st.markdown(f"""
-        <div style='padding: 20px; background: white; border-radius: 12px; margin-bottom: 20px;'>
-            <h3 style='color: #667eea;'>👤 {user['role']}</h3>
-            <p style='color: #888;'>{user['username']}</p>
+        <div style='padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin-bottom: 20px;'>
+            <h3 style='color: white; margin: 0;'>👤 {user['username']}</h3>
+            <p style='color: rgba(255,255,255,0.8); margin: 5px 0 0 0;'>{user['role']}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -103,175 +131,202 @@ else:
             st.session_state.current_user = None
             st.rerun()
 
-    # 主内容
-    st.markdown(f"""
-    <h1 style='color: #667eea;'>🏠 Nobel订单管理（网络同步版）</h1>
-    <p style='color: #888;'>数据已同步到云端，所有用户实时共享</p>
-    """, unsafe_allow_html=True)
+        st.divider()
 
-    # 仪表板
-    col1, col2, col3, col4, col5 = st.columns(5)
+        # 页面导航
+        page = st.radio("📋 功能菜单", ["📊 仪表盘", "👥 客户管理", "📦 订单管理"], label_visibility="collapsed")
 
-    try:
+    # 主内容区域
+    if page == "📊 仪表盘":
+        st.title("📊 仪表盘")
+        st.markdown("---")
+
         # 统计数据
-        customers_response = supabase.table('customers').select('*').execute()
-        orders_response = supabase.table('orders').select('*').execute()
-        users_response = supabase.table('users').select('*').execute()
+        customers = load_data(CUSTOMERS_FILE)
+        orders = load_data(ORDERS_FILE)
 
-        customers_data = customers_response.data
-        orders_data = orders_response.data
-        users_data = users_response.data
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("👥 客户总数", len(customers_data))
-
+            st.metric("👥 客户总数", len(customers))
         with col2:
-            sample_count = len([o for o in orders_data if o['type'] == 'sample'])
-            st.metric("🎨 打样订单", sample_count)
-
+            st.metric("📦 订单总数", len(orders))
         with col3:
-            design_count = len([o for o in orders_data if o['type'] == 'design'])
-            st.metric("💡 设计报价", design_count)
-
+            pending_orders = [o for o in orders if o.get('status') == 'pending']
+            st.metric("⏳ 待处理订单", len(pending_orders))
         with col4:
-            formal_count = len([o for o in orders_data if o['type'] == 'formal'])
-            st.metric("📦 正式订单", formal_count)
-
-        with col5:
-            aftersale_count = len([o for o in orders_data if o['type'] == 'aftersale'])
-            st.metric("🔧 售后服务", aftersale_count)
-
-    except Exception as e:
-        st.error(f"数据加载失败：{str(e)}")
-
-    st.markdown("---")
-
-    # 标签页
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👥 客户管理", "🎨 打样订单", "💡 设计报价", "📦 正式订单", "🔧 售后服务", "👤 用户管理"])
-
-    # 客户管理
-    with tab1:
-        st.subheader("客户列表")
-
-        try:
-            customers_response = supabase.table('customers').select('*').execute()
-            customers_data = customers_response.data
-
-            if customers_data:
-                df = pd.DataFrame(customers_data)
-                df_display = df[['code', 'region']]
-                df_display.columns = ['客户编号', '所属地区']
-                st.dataframe(df_display, use_container_width=True)
-            else:
-                st.info("暂无客户数据")
-        except Exception as e:
-            st.error(f"加载客户数据失败：{str(e)}")
+            completed_orders = [o for o in orders if o.get('status') == 'completed']
+            st.metric("✅ 已完成订单", len(completed_orders))
 
         st.markdown("---")
-        st.subheader("添加客户")
-        with st.form("add_customer"):
-            code = st.text_input("客户编号 *")
-            region = st.text_input("所属地区 *")
 
-            if st.form_submit_button("💾 保存"):
-                if code and region:
-                    try:
-                        supabase.table('customers').insert({
-                            'code': code,
-                            'region': region,
-                            'logo': ''
-                        }).execute()
-                        st.success("客户添加成功！")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"添加失败：{str(e)}")
+        # 图表
+        if orders:
+            orders_df = pd.DataFrame(orders)
+
+            # 订单状态分布
+            status_counts = orders_df['status'].value_counts()
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("📈 订单状态分布")
+                st.bar_chart(status_counts)
+
+            with col2:
+                st.subheader("📊 最新订单")
+                st.dataframe(
+                    orders_df.tail(5)[['order_number', 'customer_name', 'status', 'total_amount']],
+                    use_container_width=True
+                )
+
+    elif page == "👥 客户管理":
+        st.title("👥 客户管理")
+        st.markdown("---")
+
+        # 添加客户
+        with st.expander("➕ 添加新客户", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                name = st.text_input("客户姓名 *", key="new_customer_name")
+                phone = st.text_input("联系电话", key="new_customer_phone")
+            with col2:
+                email = st.text_input("电子邮箱", key="new_customer_email")
+                company = st.text_input("公司名称", key="new_customer_company")
+            address = st.text_area("地址", key="new_customer_address")
+
+            if st.button("💾 保存客户", use_container_width=True):
+                if name:
+                    customers = load_data(CUSTOMERS_FILE)
+                    new_customer = {
+                        "id": len(customers) + 1,
+                        "name": name,
+                        "phone": phone,
+                        "email": email,
+                        "company": company,
+                        "address": address,
+                        "created_at": datetime.now().isoformat()
+                    }
+                    customers.append(new_customer)
+                    save_data(CUSTOMERS_FILE, customers)
+                    st.success("✅ 客户添加成功！")
+                    st.rerun()
                 else:
-                    st.warning("请填写所有必填项")
-
-    # 打样订单
-    with tab2:
-        st.subheader("打样订单列表")
-
-        try:
-            orders_response = supabase.table('orders').select('*, customers(code)').eq('type', 'sample').execute()
-            sample_orders = orders_response.data
-
-            if sample_orders:
-                df = pd.DataFrame(sample_orders)
-                if not df.empty:
-                    df_display = df[['order_no', 'content', 'executor', 'status']]
-                    df_display.columns = ['订单号', '内容', '执行人', '状态']
-                    st.dataframe(df_display, use_container_width=True)
-            else:
-                st.info("暂无打样订单")
-        except Exception as e:
-            st.error(f"加载订单数据失败：{str(e)}")
+                    st.error("❌ 请填写客户姓名")
 
         st.markdown("---")
-        st.subheader("创建订单")
-        with st.form("add_sample_order"):
-            try:
-                customers_response = supabase.table('customers').select('*').execute()
-                customers_data = customers_response.data
-                customer_options = {c['code']: c['id'] for c in customers_data}
-            except:
-                customer_options = {}
 
-            order_no = st.text_input("订单号 *")
-            customer_code = st.selectbox("客户 *", list(customer_options.keys())) if customer_options else st.selectbox("客户", ["无客户数据"])
-            content = st.text_area("订单内容 *")
-            executor = st.text_input("执行人 *")
-            status = st.selectbox("状态", ["pending", "processing", "completed", "cancelled"])
+        # 客户列表
+        customers = load_data(CUSTOMERS_FILE)
 
-            if st.form_submit_button("💾 保存"):
-                if order_no and content and executor:
-                    if customer_options:
-                        try:
-                            supabase.table('orders').insert({
-                                'order_no': order_no,
-                                'type': 'sample',
-                                'customer_id': customer_options[customer_code],
-                                'content': content,
-                                'executor': executor,
-                                'status': status
-                            }).execute()
-                            st.success("订单创建成功！")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"创建失败：{str(e)}")
-                    else:
-                        st.warning("请先添加客户数据")
+        if customers:
+            st.subheader("📋 客户列表")
+
+            # 搜索
+            search = st.text_input("🔍 搜索客户", key="search_customers")
+
+            if search:
+                customers = [c for c in customers if search.lower() in c['name'].lower()]
+
+            customers_df = pd.DataFrame(customers)
+            st.dataframe(customers_df, use_container_width=True)
+        else:
+            st.info("📭 暂无客户数据，请添加客户")
+
+    elif page == "📦 订单管理":
+        st.title("📦 订单管理")
+        st.markdown("---")
+
+        # 添加订单
+        with st.expander("➕ 创建新订单", expanded=True):
+            customers = load_data(CUSTOMERS_FILE)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                order_number = st.text_input("订单号 *", key="new_order_number", value=f"ORD{datetime.now().strftime('%Y%m%d%H%M%S')}")
+                if customers:
+                    customer_names = [c['name'] for c in customers]
+                    customer_name = st.selectbox("选择客户 *", customer_names, key="new_order_customer")
                 else:
-                    st.warning("请填写所有必填项")
+                    st.warning("⚠️ 请先添加客户")
+                    customer_name = None
+            with col2:
+                order_type = st.selectbox("订单类型", ["打样", "正式订单"], key="new_order_type")
+                order_status = st.selectbox("订单状态", ["待处理", "进行中", "已完成", "已取消"], key="new_order_status")
+                total_amount = st.number_input("订单金额（元）", min_value=0.0, step=100.0, key="new_order_amount")
 
-    # 其他标签页的简化实现
-    with tab3:
-        st.info("设计报价功能开发中...")
+            notes = st.text_area("备注说明", key="new_order_notes")
 
-    with tab4:
-        st.info("正式订单功能开发中...")
+            if st.button("💾 创建订单", use_container_width=True):
+                if order_number and customer_name:
+                    orders = load_data(ORDERS_FILE)
 
-    with tab5:
-        st.info("售后服务功能开发中...")
+                    # 查找客户ID
+                    customer_id = None
+                    for c in customers:
+                        if c['name'] == customer_name:
+                            customer_id = c['id']
+                            break
 
-    # 用户管理（仅admin可见）
-    if user['username'] == 'admin':
-        with tab6:
-            st.subheader("用户列表")
-
-            try:
-                users_response = supabase.table('users').select('*').execute()
-                users_data = users_response.data
-
-                if users_data:
-                    df = pd.DataFrame(users_data)
-                    df_display = df[['username', 'role', 'permissions']]
-                    df_display.columns = ['用户名', '角色', '权限']
-                    st.dataframe(df_display, use_container_width=True)
+                    new_order = {
+                        "id": len(orders) + 1,
+                        "order_number": order_number,
+                        "customer_id": customer_id,
+                        "customer_name": customer_name,
+                        "type": order_type,
+                        "status": order_status,
+                        "total_amount": total_amount,
+                        "notes": notes,
+                        "created_at": datetime.now().isoformat()
+                    }
+                    orders.append(new_order)
+                    save_data(ORDERS_FILE, orders)
+                    st.success("✅ 订单创建成功！")
+                    st.rerun()
                 else:
-                    st.info("暂无用户数据")
-            except Exception as e:
-                st.error(f"加载用户数据失败：{str(e)}")
-    else:
-        # 隐藏用户管理标签页
-        tab6.empty()
+                    st.error("❌ 请填写订单号和选择客户")
+
+        st.markdown("---")
+
+        # 订单列表
+        orders = load_data(ORDERS_FILE)
+
+        if orders:
+            st.subheader("📋 订单列表")
+
+            # 搜索和筛选
+            col1, col2 = st.columns(2)
+            with col1:
+                search = st.text_input("🔍 搜索订单", key="search_orders")
+            with col2:
+                status_filter = st.selectbox("📊 状态筛选", ["全部", "待处理", "进行中", "已完成", "已取消"], key="filter_status")
+
+            filtered_orders = orders
+
+            if search:
+                filtered_orders = [o for o in filtered_orders if search.lower() in o.get('order_number', '').lower()]
+
+            if status_filter != "全部":
+                status_map = {
+                    "待处理": "pending",
+                    "进行中": "in_progress",
+                    "已完成": "completed",
+                    "已取消": "cancelled"
+                }
+                filtered_orders = [o for o in filtered_orders if o.get('status') == status_map[status_filter]]
+
+            orders_df = pd.DataFrame(filtered_orders)
+            st.dataframe(orders_df, use_container_width=True)
+
+            # 导出数据
+            if filtered_orders:
+                if st.button("📥 导出订单数据", use_container_width=True):
+                    csv = orders_df.to_csv(index=False, encoding='utf-8-sig')
+                    st.download_button(
+                        label="⬇️ 下载 CSV 文件",
+                        data=csv,
+                        file_name=f"orders_{datetime.now().strftime('%Y%m%d')}.csv",
+                        mime="text/csv"
+                    )
+        else:
+            st.info("📭 暂无订单数据，请创建订单")
