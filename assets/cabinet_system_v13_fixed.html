@@ -922,16 +922,23 @@
                         
                         // 文件列表
                         if (o.files && o.files.length > 0) {
-                            cardHtml += '<div style="margin-top: 10px;">';
+                            cardHtml += '<div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #667eea;">';
+                            cardHtml += '<p style="margin-bottom: 8px; font-weight: bold; color: #666;">📎 附件文件:</p>';
                             cardHtml += o.files.map(function(f) {
-                                return '<div class="file-preview" style="display: inline-block; padding: 8px 15px; background: #e8f4fd; border-radius: 5px; margin-right: 10px; margin-bottom: 10px;"><a href="' + f.data + '" download="' + f.name + '" class="action-download" style="color: #2980b9; text-decoration: none; display: flex; align-items: center; gap: 5px;">📎 ' + f.name + ' <span style="font-size: 12px; color: #3498db;">(点击下载)</span></a></div>';
+                                return '<div class="file-preview" style="display: flex; align-items: center; padding: 8px 15px; background: #e8f4fd; border-radius: 5px; margin-right: 10px; margin-bottom: 5px;"><a href="' + f.data + '" download="' + f.name + '" class="action-download" style="color: #2980b9; text-decoration: none; display: flex; align-items: center; gap: 8px; flex: 1;">📎 ' + f.name + '</a></div>';
                             }).join('');
                             cardHtml += '</div>';
                         }
                         
                         if (o.notes) cardHtml += '<p style="margin-top: 10px; color: #666;">📝 ' + o.notes + '</p>';
                         
-                        cardHtml += '<div style="margin-top: 15px;">';
+                        // 生成状态下拉选项
+                        var statusOptions = orderStatusConfig[type].map(function(s) {
+                            return '<option value="' + s + '" ' + (o.status === s ? 'selected' : '') + '>' + statusLabels[s] + '</option>';
+                        }).join('');
+                        
+                        cardHtml += '<div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">';
+                        cardHtml += '<select class="order-status-select" data-id="' + o.id + '" data-type="' + type + '" style="padding: 12px 20px; border: 1px solid #667eea; border-radius: 5px; background: white; cursor: pointer; font-size: 14px;">' + statusOptions + '</select>';
                         cardHtml += '<button class="btn btn-primary action-edit" data-id="' + o.id + '" data-type="' + type + '">编辑</button>';
                         cardHtml += '<button class="btn btn-danger action-delete" data-id="' + o.id + '" data-type="' + type + '">删除</button>';
                         cardHtml += '</div></div>';
@@ -960,6 +967,40 @@
                 btn.addEventListener('click', function() {
                     if (this.getAttribute('data-type')) {
                         deleteOrder(parseInt(this.getAttribute('data-id')), this.getAttribute('data-type'));
+                    }
+                });
+            });
+            
+            // 绑定状态下拉框事件
+            document.querySelectorAll('.order-status-select').forEach(function(select) {
+                select.addEventListener('change', function() {
+                    var orderId = parseInt(this.getAttribute('data-id'));
+                    var orderType = this.getAttribute('data-type');
+                    var newStatus = this.value;
+                    
+                    if (hasPermission('edit')) {
+                        var order = orders.find(function(o) { return o.id === orderId && o.type === orderType; });
+                        if (order) {
+                            order.status = newStatus;
+                            saveData();
+                            renderOrders(orderType);
+                            updateDashboard();
+                            // 显示提示信息
+                            var alertDiv = document.createElement('div');
+                            alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; padding: 15px 25px; background: #2ecc71; color: white; border-radius: 5px; z-index: 10000; box-shadow: 0 3px 10px rgba(0,0,0,0.2);';
+                            alertDiv.textContent = '✅ 状态已更新为：' + statusLabels[newStatus];
+                            document.body.appendChild(alertDiv);
+                            setTimeout(function() {
+                                alertDiv.style.transition = 'opacity 0.5s';
+                                alertDiv.style.opacity = '0';
+                                setTimeout(function() {
+                                    document.body.removeChild(alertDiv);
+                                }, 500);
+                            }, 2000);
+                        }
+                    } else {
+                        alert('没有编辑权限！');
+                        this.value = orders.find(function(o) { return o.id === orderId && o.type === orderType; }).status;
                     }
                 });
             });
