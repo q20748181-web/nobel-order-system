@@ -201,6 +201,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <script>
+        // 检测是否需要添加路径前缀（用于外网访问）
+        const isExternal = window.location.pathname.startsWith('/nobel');
+        const API_BASE = isExternal ? '/nobel' : '';
+
         let currentUser = null;
         let customers = [];
         let orders = [];
@@ -211,7 +215,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            const response = await fetch('/api/login', {
+            const response = await fetch(API_BASE + '/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -249,7 +253,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function loadDashboard() {
-            const response = await fetch('/api/stats');
+            const response = await fetch(API_BASE + '/api/stats');
             const data = await response.json();
             document.getElementById('stat-customers').textContent = data.customers;
             document.getElementById('stat-orders').textContent = data.orders;
@@ -257,7 +261,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function loadCustomers() {
-            const response = await fetch('/api/customers');
+            const response = await fetch(API_BASE + '/api/customers');
             customers = await response.json();
             const tbody = document.getElementById('customers-table');
             tbody.innerHTML = customers.map(c => `
@@ -274,7 +278,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function loadOrders() {
-            const response = await fetch('/api/orders');
+            const response = await fetch(API_BASE + '/api/orders');
             orders = await response.json();
             const tbody = document.getElementById('orders-table');
             tbody.innerHTML = orders.map(o => `
@@ -298,7 +302,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const region = prompt('地区:');
             if (!region) return;
 
-            fetch('/api/customers', {
+            fetch(API_BASE + '/api/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, region })
@@ -311,7 +315,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const amount = parseFloat(prompt('金额:'));
             if (isNaN(amount)) return;
 
-            fetch('/api/orders', {
+            fetch(API_BASE + '/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content, amount, status: '待处理' })
@@ -320,13 +324,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         async function deleteCustomer(id) {
             if (!confirm('确认删除?')) return;
-            await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+            await fetch(API_BASE + `/api/customers/${id}`, { method: 'DELETE' });
             loadCustomers();
         }
 
         async function deleteOrder(id) {
             if (!confirm('确认删除?')) return;
-            await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+            await fetch(API_BASE + `/api/orders/${id}`, { method: 'DELETE' });
             loadOrders();
         }
     </script>
