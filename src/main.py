@@ -9,7 +9,7 @@ import cozeloop
 import uvicorn
 import time
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
@@ -465,6 +465,50 @@ async def health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+# Nobel订单管理系统 - 根路径重定向
+@app.get("/")
+async def root_redirect():
+    """根路径重定向到 Nobel订单管理系统"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/nobel/", status_code=302)
+
+
+# Nobel订单管理系统 - 代理路由
+@app.api_route("/nobel/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+async def nobel_proxy(request: Request, path: str):
+    """代理 Nobel订单管理系统到端口 9002"""
+    import httpx
+    import os
+
+    # Nobel系统地址
+    nobel_url = "http://localhost:9002"
+    target_url = f"{nobel_url}/{path}"
+
+    # 收集请求头和请求体
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+    body = await request.body()
+
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=body,
+                follow_redirects=True,
+            )
+
+            # 返回响应
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers={k: v for k, v in response.headers.items() if k.lower() not in ["content-length", "transfer-encoding"]}
+            )
+    except Exception as e:
+        logger.error(f"Error proxying to Nobel system: {e}")
+        raise HTTPException(status_code=503, detail=f"代理失败: {str(e)}")
 
 
 @app.get(path="/graph_parameter")

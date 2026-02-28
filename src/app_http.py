@@ -37,27 +37,46 @@ if SUPABASE_URL and SUPABASE_ANON_KEY:
         from supabase import create_client
         supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-        # 加载用户
+        # 加载用户 - 确保至少保留默认 admin 用户
         users_response = supabase.table('users').select('*').execute()
         if users_response.data:
-            users_db = users_response.data
+            # 合并用户数据，确保默认 admin 用户存在
+            supabase_users = users_response.data
+            admin_exists = any(u.get('username') == 'admin' for u in supabase_users)
+            if admin_exists:
+                users_db = supabase_users
+                print(f"📋 从 Supabase 加载了 {len(users_db)} 个用户")
+            else:
+                # Supabase 中没有 admin 用户，保留本地默认用户
+                print(f"⚠️ Supabase 中没有 admin 用户，使用本地默认用户")
+        else:
+            # Supabase 中没有用户数据，使用本地默认用户
+            print(f"📋 Supabase 中没有用户数据，使用本地默认用户")
 
         # 加载客户
         customers_response = supabase.table('customers').select('*').execute()
         if customers_response.data:
             customers_db = customers_response.data
+            print(f"📋 从 Supabase 加载了 {len(customers_db)} 个客户")
 
         # 加载订单
         orders_response = supabase.table('orders').select('*').execute()
         if orders_response.data:
             orders_db = orders_response.data
+            print(f"📋 从 Supabase 加载了 {len(orders_db)} 个订单")
 
         USE_SUPABASE = True
+        print(f"✅ 已连接 Supabase，用户数: {len(users_db)}")
+        print(f"🔐 默认登录账号: admin / admin123")
     except Exception as e:
-        print(f"Supabase 连接失败: {e}")
+        print(f"⚠️ Supabase 连接失败: {e}")
+        print(f"📝 使用本地存储模式")
+        print(f"🔐 默认登录账号: admin / admin123")
         USE_SUPABASE = False
 else:
     USE_SUPABASE = False
+    print("📝 使用本地存储模式")
+    print(f"🔐 默认登录账号: admin / admin123")
 
 # HTML 模板
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -324,10 +343,22 @@ async def login(request: Request):
     username = data.get("username")
     password = data.get("password")
 
+    # 调试信息
+    print(f"\n" + "="*50)
+    print(f"🔐 登录请求")
+    print(f"  用户名: {username}")
+    print(f"  密码: {password}")
+    print(f"  用户列表: {users_db}")
+    print(f"  用户列表长度: {len(users_db)}")
+    print("="*50 + "\n")
+
     for user in users_db:
+        print(f"  检查用户: {user}")
         if user["username"] == username and user["password"] == password:
+            print(f"  ✅ 登录成功!")
             return {"success": True, "user": user}
 
+    print(f"  ❌ 登录失败: 用户名或密码错误")
     return {"success": False}
 
 @app.get("/api/customers")
