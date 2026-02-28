@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>登录测试</title>
+</head>
+<body>
+    <h1>登录测试</h1>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const isExternal = window.location.pathname.startsWith('/nobel');
+            const API_BASE = isExternal ? '/nobel' : '';
+
+            console.log('API_BASE:', API_BASE);
+            console.log('完整URL:', window.location.href);
+            console.log('路径:', window.location.pathname);
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>正在测试登录...</p>';
+
+            try {
+                const response = await fetch(API_BASE + '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+
+                const data = await response.json();
+                console.log('响应:', data);
+
+                resultDiv.innerHTML = `
+                    <h2>测试结果</h2>
+                    <p><strong>API_BASE:</strong> ${API_BASE}</p>
+                    <p><strong>完整URL:</strong> ${window.location.href}</p>
+                    <p><strong>路径:</strong> ${window.location.pathname}</p>
+                    <p><strong>状态:</strong> ${response.status}</p>
+                    <p><strong>成功:</strong> ${data.success}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('错误:', error);
+                resultDiv.innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+            }
+        }
+
+        testLogin();
+    </script>
+</body>
+</html>

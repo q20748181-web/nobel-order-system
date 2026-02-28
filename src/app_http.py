@@ -184,6 +184,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">登录</button>
         </form>
+        <div id="loginDebug" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666; display: none;">
+            <strong>调试信息：</strong><br>
+            <span id="debugInfo"></span>
+        </div>
     </div>
 
     <!-- 主内容 -->
@@ -476,6 +480,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const isExternal = window.location.pathname.startsWith('/nobel');
         const API_BASE = isExternal ? '/nobel' : '';
 
+        // 调试信息
+        console.log('=== 登录调试信息 ===');
+        console.log('API_BASE:', API_BASE);
+        console.log('完整URL:', window.location.href);
+        console.log('路径:', window.location.pathname);
+        console.log('isExternal:', isExternal);
+
         let currentUser = null;
         let customers = [];
         let orders = [];
@@ -487,22 +498,43 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
-            const response = await fetch(API_BASE + '/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+            console.log('=== 登录请求 ===');
+            console.log('用户名:', username);
+            console.log('密码:', password);
+            console.log('请求URL:', API_BASE + '/api/login');
 
-            const data = await response.json();
+            // 显示调试信息
+            const debugDiv = document.getElementById('loginDebug');
+            const debugInfo = document.getElementById('debugInfo');
+            debugDiv.style.display = 'block';
+            debugInfo.innerHTML = `API_BASE: ${API_BASE}<br>请求URL: ${API_BASE + '/api/login'}<br>用户名: ${username}`;
 
-            if (data.success) {
-                currentUser = data.user;
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-                document.getElementById('welcomeMessage').textContent = `欢迎回来，${currentUser.username}`;
-                loadAllData();
-            } else {
-                alert('用户名或密码错误！');
+            try {
+                const response = await fetch(API_BASE + '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                console.log('登录响应:', data);
+
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    document.getElementById('welcomeMessage').textContent = `欢迎回来，${currentUser.username}`;
+                    debugDiv.style.display = 'none';
+                    loadAllData();
+                } else {
+                    debugInfo.innerHTML += `<br><br><strong>❌ 登录失败</strong><br>响应: ${JSON.stringify(data)}`;
+                    alert('用户名或密码错误！');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                debugInfo.innerHTML += `<br><br><strong>❌ 网络错误</strong><br>错误: ${error.message}`;
+                alert('登录请求失败，请检查网络连接！');
             }
         });
 
