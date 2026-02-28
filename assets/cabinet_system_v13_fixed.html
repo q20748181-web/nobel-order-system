@@ -713,9 +713,11 @@
         function previewOrderFiles(input) {
             if (!hasPermission('upload')) { alert('没有上传权限！'); return; }
             if (input.files) {
-                tempOrderFiles = [];
+                // 注意：不要清空 tempOrderFiles，这样可以保留原有文件
+                // tempOrderFiles = [];  // 注释掉这行
+                
                 var previewContainer = document.getElementById('orderFilePreview');
-                previewContainer.innerHTML = '';
+                if (!previewContainer) return;
                 
                 for (var i = 0; i < input.files.length; i++) {
                     (function(file) {
@@ -730,13 +732,26 @@
                             
                             var preview = document.createElement('div');
                             preview.className = 'file-preview';
-                    preview.style.cssText = 'display: inline-block; padding: 8px 15px; background: #e8f4fd; border-radius: 5px; margin-right: 10px; margin-bottom: 10px; color: #2980b9;';
-                    preview.textContent = '📎 ' + file.name;
+                            preview.style.cssText = 'display: inline-block; padding: 8px 15px; background: #e8f4fd; border-radius: 5px; margin-right: 10px; margin-bottom: 10px; color: #2980b9;';
+                            preview.innerHTML = '📎 ' + file.name + ' <span style="margin-left: 8px; cursor: pointer; color: #e74c3c;" onclick="removeFile(' + (tempOrderFiles.length - 1) + ')">✕</span>';
                             previewContainer.appendChild(preview);
                         }
                         reader.readAsDataURL(file);
                     })(input.files[i]);
                 }
+            }
+        }
+        
+        // 添加删除文件的功能
+        function removeFile(index) {
+            if (!hasPermission('edit')) { alert('没有编辑权限！'); return; }
+            tempOrderFiles.splice(index, 1);
+            // 重新渲染文件预览
+            var previewContainer = document.getElementById('orderFilePreview');
+            if (previewContainer) {
+                previewContainer.innerHTML = tempOrderFiles.map(function(f, idx) {
+                    return '<div class="file-preview" style="display: inline-block; padding: 8px 15px; background: #e8f4fd; border-radius: 5px; margin-right: 10px; margin-bottom: 10px; color: #2980b9;">📎 ' + f.name + ' <span style="margin-left: 8px; cursor: pointer; color: #e74c3c;" onclick="removeFile(' + idx + ')">✕</span></div>';
+                }).join('');
             }
         }
         
