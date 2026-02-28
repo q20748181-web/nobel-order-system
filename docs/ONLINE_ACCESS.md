@@ -1,12 +1,14 @@
-# 橱柜订单管理系统 - 在线访问地址
+# 橱柜订单管理系统 - 优化版访问地址
 
-## 🌐 当前访问地址
+## 🌐 优化后的访问地址
 
 ```
-https://coze-coding-project.tos.coze.site/coze_storage_7611717619640762422/index_1094fb8e.html?sign=1774837736-63aa225abc-0-dfc3022da512f74640a888b64a7ebd76c4940189ace5886b26f92640eb4653f2
+https://coze-coding-project.tos.coze.site/coze_storage_7611717619640762422/c_6876f231.html?sign=1774837928-6b88125758-0-107d76cec2c67c76ec8444a197a0835e543f4c6a3e03ac82ba0b24e2577129d9
 ```
 
 **⚠️ 链接有效期：30天**
+
+> 💡 **提示**：如需重新生成链接，运行：`python scripts/get_short_url.py`
 
 ---
 
