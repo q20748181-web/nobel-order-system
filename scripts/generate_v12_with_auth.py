@@ -680,15 +680,15 @@ html_template = """<!DOCTYPE html>
                 <div class="form-group"><label>上传文件</label><input type="file" id="orderFiles" multiple class="action-upload"></div>
                 <div id="orderFilePreview" class="file-preview-container"></div>
                 <div class="form-group"><label>备注</label><textarea id="orderNotes" placeholder="订单备注信息"></textarea></div>
-                <button id="btnSaveOrder" class="btn btn-primary action-edit">保存订单</button>
-                <button id="btnCancelOrder" class="btn">取消</button>
+                <button id="btnSaveOrder_${type}" class="btn btn-primary action-edit">保存订单</button>
+                <button id="btnCancelOrder_${type}" class="btn">取消</button>
             `;
             
             document.getElementById(type + 'OrderForm').innerHTML = formHtml;
             document.getElementById(type + 'OrderForm').style.display = 'block';
             
-            document.getElementById('btnSaveOrder').addEventListener('click', saveOrder);
-            document.getElementById('btnCancelOrder').addEventListener('click', function() {
+            document.getElementById('btnSaveOrder_' + type).addEventListener('click', saveOrder);
+            document.getElementById('btnCancelOrder_' + type).addEventListener('click', function() {
                 document.getElementById(type + 'OrderForm').style.display = 'none';
             });
             document.getElementById('orderFiles').addEventListener('change', previewOrderFiles);
@@ -831,8 +831,8 @@ html_template = """<!DOCTYPE html>
                 <div class="form-group"><label>上传文件</label><input type="file" id="orderFiles" multiple class="action-upload"></div>
                 ${filePreview}
                 <div class="form-group"><label>备注</label><textarea id="orderNotes">${order.notes || ''}</textarea></div>
-                <button id="btnSaveOrder" class="btn btn-primary action-edit">保存订单</button>
-                <button id="btnCancelOrder" class="btn">取消</button>
+                <button id="btnSaveOrder_${type}" class="btn btn-primary action-edit">保存订单</button>
+                <button id="btnCancelOrder_${type}" class="btn">取消</button>
             `;
             
             document.getElementById(type + 'OrderForm').innerHTML = formHtml;
@@ -840,8 +840,8 @@ html_template = """<!DOCTYPE html>
             
             document.getElementById('orderCustomer').value = order.customerId;
             
-            document.getElementById('btnSaveOrder').addEventListener('click', saveOrder);
-            document.getElementById('btnCancelOrder').addEventListener('click', function() {
+            document.getElementById('btnSaveOrder_' + type).addEventListener('click', saveOrder);
+            document.getElementById('btnCancelOrder_' + type).addEventListener('click', function() {
                 document.getElementById(type + 'OrderForm').style.display = 'none';
             });
             document.getElementById('orderFiles').addEventListener('change', previewOrderFiles);
