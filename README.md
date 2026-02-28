@@ -88,6 +88,86 @@ streamlit run src/app.py
 python tests/test_cabinet_order_system.py
 ```
 
+---
+
+## 🚀 部署到生产环境
+
+### 快速部署向导
+
+运行部署向导，选择最适合您的部署方案：
+
+```bash
+bash scripts/deployment_wizard.sh
+```
+
+### 部署方案对比
+
+| 方案 | 难度 | 费用 | 时间 | 稳定性 | 推荐度 |
+|------|------|------|------|--------|--------|
+| **Streamlit Cloud** | ⭐ 免费 | 3分钟 | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 强烈推荐 |
+| **云服务器** | ⭐⭐⭐ 50-100元/月 | 10-30分钟 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 长期使用 |
+| **隧道服务** | ⭐⭐ 免费 | 5分钟 | ⭐⭐ | ⭐⭐ | 临时测试 |
+
+### 方案1：Streamlit Cloud（最推荐）
+
+**3分钟免费部署，固定URL，自动HTTPS**
+
+1. 推送代码到 GitHub
+2. 访问 https://share.streamlit.io/
+3. 点击 "Deploy"
+
+📖 详细教程：[docs/DEPLOY_STREAMLIT_CLOUD.md](docs/DEPLOY_STREAMLIT_CLOUD.md)
+
+### 方案2：云服务器（最稳定）
+
+**固定IP，高性能，完全控制**
+
+1. 购买云服务器（50-100元/月）
+2. 运行部署脚本：
+   ```bash
+   bash scripts/deploy_to_server.sh
+   ```
+3. 上传代码
+4. 完成！
+
+📖 详细教程：[docs/DEPLOY_CLOUD_SERVER.md](docs/DEPLOY_CLOUD_SERVER.md)
+
+### 方案3：隧道服务（临时使用）
+
+**快速设置，免费，无需购买**
+
+```bash
+# 在本地电脑执行
+ssh -R 80:9.128.127.13:8501 serveo.net
+```
+
+等待显示外网地址即可！
+
+💡 查看更多方案：`python scripts/show_tunnel_solutions.py`
+
+### 📚 完整部署文档
+
+- **部署指南总结**：[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
+- **Streamlit Cloud部署**：[docs/DEPLOY_STREAMLIT_CLOUD.md](docs/DEPLOY_STREAMLIT_CLOUD.md)
+- **云服务器部署**：[docs/DEPLOY_CLOUD_SERVER.md](docs/DEPLOY_CLOUD_SERVER.md)
+
+---
+
+## 🎯 我的推荐
+
+### 如果你是：
+
+👉 **小团队（<10人）** → **Streamlit Cloud**
+- 免费、简单、够用
+- 3分钟部署完成
+
+👉 **中大型团队（>10人）** → **云服务器**
+- 性能好、可扩展、专业
+- 固定IP，可配置域名
+
+👉 **临时测试** → **隧道服务**
+- 快速、免费、无需购买
+
 ## 详细文档
 
 ### 📚 Streamlit 后端文档
