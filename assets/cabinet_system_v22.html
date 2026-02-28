@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nobel订单管理 (数据库版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif; background: #f5f7fa; min-height: 100vh; color: #333; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        /* 登录页 */
+        .login-section { background: white; padding: 50px; border-radius: 16px; max-width: 450px; margin: 80px auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .login-section h2 { text-align: center; color: #667eea; margin-bottom: 30px; font-size: 32px; font-weight: 700; }
+        
+        /* 表单 */
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 16px; border: 2px solid #e1e8ed; border-radius: 8px; font-size: 14px; transition: all 0.3s; background: white; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .form-group textarea { height: 100px; resize: vertical; }
+        .hint { color: #999; font-size: 13px; margin-top: 6px; font-style: italic; }
+        
+        /* 按钮 */
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4); }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn-success:hover { background: #27ae60; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn-secondary:hover { background: #7f8c8d; }
+        
+        /* 主内容 */
+        .main-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* 头部 */
+        .header { background: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #667eea; margin-bottom: 5px; font-size: 28px; }
+        .header p { color: #888; font-size: 14px; }
+        .header a { color: #667eea; text-decoration: none; font-weight: 600; }
+        
+        /* 仪表板 */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .dashboard-card { background: white; padding: 25px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s; cursor: pointer; }
+        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .dashboard-card:active { transform: translateY(-2px); }
+        .dashboard-card h3 { font-size: 48px; color: #667eea; margin-bottom: 8px; font-weight: 700; }
+        .dashboard-card p { color: #888; font-size: 14px; font-weight: 500; }
+        
+        /* 选项卡 */
+        .tabs { display: flex; gap: 8px; margin-bottom: 25px; flex-wrap: wrap; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .tab { padding: 12px 20px; background: transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s; color: #666; font-weight: 600; font-size: 14px; border: 2px solid transparent; display: flex; align-items: center; gap: 8px; }
+        .tab:hover { background: #f0f0f0; color: #667eea; }
+        .tab.active { background: #667eea; color: white; border-color: #667eea; }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        
+        /* 卡片 */
+        .card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s; }
+        .card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .card h3 { color: #333; margin-bottom: 15px; font-size: 18px; font-weight: 600; }
+        .card p { color: #666; margin-bottom: 8px; font-size: 14px; line-height: 1.6; }
+        
+        /* 状态标签 */
+        .status-badge { padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #cce5ff; color: #004085; }
+        .status-splitting { background: #d4edda; color: #155724; }
+        .status-ordered { background: #d1ecf1; color: #0c5460; }
+        .status-producing { background: #e2e3e5; color: #383d41; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+        
+        /* 状态组 */
+        .status-group { margin-bottom: 25px; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .status-group h3 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; font-size: 16px; font-weight: 600; }
+        .status-count { background: rgba(255,255,255,0.3); color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px; margin-left: 10px; font-weight: 700; }
+        
+        /* Logo预览 */
+        .logo-preview { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 3px solid #e1e8ed; background: #f8f9fa; }
+        
+        /* 文件预览 */
+        .file-preview-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .file-preview { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; background: #e8f4fd; border-radius: 8px; color: #2980b9; font-size: 14px; font-weight: 500; transition: all 0.3s; }
+        .file-preview:hover { background: #d4e8f8; transform: translateY(-2px); }
+        .file-preview a { color: #2980b9; text-decoration: none; }
+        
+        /* 执行人信息 */
+        .executor-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #667eea; }
+        
+        /* 时间信息 */
+        .time-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2ecc71; }
+        .time-info p { color: #666; font-size: 13px; margin-bottom: 6px; }
+        .time-info p:last-child { margin-bottom: 0; }
+        
+        /* 搜索框 */
+        .search-box { margin-bottom: 20px; }
+        .search-box input { width: 100%; padding: 15px 20px; border: 2px solid #e1e8ed; border-radius: 10px; font-size: 15px; transition: all 0.3s; }
+        .search-box input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1); }
+        
+        /* 表单容器 */
+        .form-container { background: white; padding: 30px; border-radius: 12px; margin-top: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .form-container h3 { color: #333; margin-bottom: 25px; font-size: 22px; font-weight: 600; padding-bottom: 15px; border-bottom: 2px solid #f0f0f0; }
+        
+        /* 上传区域 */
+        .upload-area { border: 2px dashed #667eea; border-radius: 10px; padding: 30px; text-align: center; background: #f8f9fa; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { background: #f0f4ff; border-color: #5568d3; }
+        
+        /* 空状态 */
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state p { font-size: 16px; color: #888; }
+        
+        .hide { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div class="login-section" id="loginSection">
+        <h2>🏠 Nobel订单管理</h2>
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="username" placeholder="请输入用户名" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="handleLogin()">
+            <span>🔐</span> 登录
+        </button>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <div class="header">
+                <div>
+                    <h1>🏠 Nobel订单管理</h1>
+                    <p></p>
+                </div>
+                <div>
+                    <span style="color: #888; font-size: 14px;">欢迎，<strong id="currentUser" style="color: #667eea;">管理员</strong>！</span>
+                    <a href="#" onclick="handleLogout()" style="margin-left: 15px;"><span>🚪</span> 退出登录</a>
+                </div>
+            </div>
+
+            <div class="dashboard">
+                <div class="dashboard-card" onclick="switchTab('customers')"><h3 id="totalCustomers">0</h3><p>👥 客户总数</p></div>
+                <div class="dashboard-card" onclick="switchTab('sample')"><h3 id="totalSampleOrders">0</h3><p>🎨 打样订单</p></div>
+                <div class="dashboard-card" onclick="switchTab('design')"><h3 id="totalDesignOrders">0</h3><p>💡 设计报价</p></div>
+                <div class="dashboard-card" onclick="switchTab('formal')"><h3 id="totalFormalOrders">0</h3><p>📦 正式订单</p></div>
+                <div class="dashboard-card" onclick="switchTab('aftersale')"><h3 id="totalAfterSaleOrders">0</h3><p>🔧 售后服务</p></div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('customers')"><span>👥</span> 客户管理</div>
+                <div class="tab" onclick="switchTab('sample')"><span>🎨</span> 打样订单</div>
+                <div class="tab" onclick="switchTab('design')"><span>💡</span> 设计报价</div>
+                <div class="tab" onclick="switchTab('formal')"><span>📦</span> 正式订单</div>
+                <div class="tab" onclick="switchTab('aftersale')"><span>🔧</span> 售后服务</div>
+                <div class="tab" onclick="switchTab('users')"><span>👤</span> 用户管理</div>
+                <div class="tab" onclick="switchTab('data')"><span>📊</span> 数据导出</div>
+            </div>
+
+            <!-- 客户管理 -->
+            <div class="tab-content active" id="customers">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">👥 客户列表</h2>
+                    <button class="btn btn-primary action-add" onclick="showAddCustomerForm()"><span>➕</span> 添加客户</button>
+                </div>
+                <div class="search-box"><input type="text" id="searchCustomers" placeholder="🔍 搜索客户名称或地区..." oninput="filterCustomers()"></div>
+                <div id="customerList"></div>
+                <div id="customerForm" class="form-container hide">
+                    <h3 id="customerFormTitle">添加客户</h3>
+                    <div class="form-group"><label>客户编号 *</label><input type="text" id="customerCode" placeholder="如：C001"><p class="hint">客户唯一标识，建议使用字母+数字组合</p></div>
+                    <div class="form-group"><label>所属地区 *</label><input type="text" id="customerRegion" placeholder="如：北京朝阳区"></div>
+                    <div class="form-group"><label>客户Logo</label><input type="file" id="customerLogo" accept="image/*" class="action-upload" onchange="previewLogo(this)"><p class="hint">支持 JPG、PNG 格式</p></div>
+                    <div id="logoPreviewContainer" class="hide" style="margin-top: 15px;"><img id="logoPreview" class="logo-preview" src="" alt="Logo预览"></div>
+                    <div style="margin-top: 25px; display: flex; gap: 10px;">
+                        <button class="btn btn-primary action-edit" onclick="saveCustomer()"><span>💾</span> 保存</button>
+                        <button class="btn btn-secondary" onclick="hideCustomerForm()"><span>✕</span> 取消</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 打样订单 -->
+            <div class="tab-content" id="sample">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">🎨 打样订单</h2>
+                    <button class="btn btn-primary action-add" onclick="showAddOrderForm('sample')"><span>➕</span> 创建订单</button>
+                </div>
+                <div class="search-box"><input type="text" id="searchSample" placeholder="🔍 搜索订单号或内容..." oninput="filterOrders('sample')"></div>
+                <div id="sampleOrders"></div>
+                <div id="sampleOrderForm"></div>
+            </div>
+
+            <!-- 设计报价 -->
+            <div class="tab-content" id="design">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">💡 设计报价</h2>
+                    <button class="btn btn-primary action-add" onclick="showAddOrderForm('design')"><span>➕</span> 创建报价</button>
+                </div>
+                <div class="search-box"><input type="text" id="searchDesign" placeholder="🔍 搜索报价号或内容..." oninput="filterOrders('design')"></div>
+                <div id="designOrders"></div>
+                <div id="designOrderForm"></div>
+            </div>
+
+            <!-- 正式订单 -->
+            <div class="tab-content" id="formal">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">📦 正式订单</h2>
+                    <button class="btn btn-primary action-add" onclick="showAddOrderForm('formal')"><span>➕</span> 创建订单</button>
+                </div>
+                <div class="search-box"><input type="text" id="searchFormal" placeholder="🔍 搜索订单号或内容..." oninput="filterOrders('formal')"></div>
+                <div id="formalOrders"></div>
+                <div id="formalOrderForm"></div>
+            </div>
+
+            <!-- 售后服务 -->
+            <div class="tab-content" id="aftersale">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">🔧 售后服务</h2>
+                    <button class="btn btn-primary action-add" onclick="showAddOrderForm('aftersale')"><span>➕</span> 创建售后</button>
+                </div>
+                <div class="search-box"><input type="text" id="searchAftersale" placeholder="🔍 搜索售后单号或内容..." oninput="filterOrders('aftersale')"></div>
+                <div id="aftersaleOrders"></div>
+                <div id="aftersaleOrderForm"></div>
+            </div>
+
+            <!-- 用户管理 -->
+            <div class="tab-content" id="users">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 24px; color: #333;">👤 用户列表</h2>
+                    <button class="btn btn-primary action-manageUsers" onclick="showAddUserForm()"><span>➕</span> 添加用户</button>
+                </div>
+                <div id="userList"></div>
+                <div id="userForm" class="form-container hide">
+                    <h3 id="userFormTitle">添加用户</h3>
+                    <div class="form-group"><label>用户名 *</label><input type="text" id="userName" placeholder="请输入用户名"></div>
+                    <div class="form-group"><label>密码 <span id="passwordLabel">*</span></label><input type="password" id="userPassword" placeholder="请输入密码"><p class="hint" id="passwordHint">新用户必须设置密码</p></div>
+                    <div class="form-group"><label>角色 *</label><input type="text" id="userRole" placeholder="如：设计员、生产经理"></div>
+                    <div class="form-group"><label>权限设置</label><div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="permEdit" style="width: auto;"> 编辑权限</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="permDelete" style="width: auto;"> 删除权限</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="permUpload" style="width: auto;"> 上传权限</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="permDownload" style="width: auto;"> 下载权限</label>
+                    </div></div>
+                    <div style="margin-top: 25px; display: flex; gap: 10px;">
+                        <button class="btn btn-primary action-manageUsers" onclick="saveUser()"><span>💾</span> 保存</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('userForm').classList.add('hide')"><span>✕</span> 取消</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据导出 -->
+            <div class="tab-content" id="data">
+                <h2 style="font-size: 24px; color: #333; margin-bottom: 20px;">📊 数据管理</h2>
+                <div class="card"><h3 style="display: flex; align-items: center; gap: 10px;"><span>📥</span> 数据导出</h3><p style="color: #666; margin-bottom: 15px;">将所有数据导出为JSON文件，用于备份或迁移到其他环境。</p><button class="btn btn-primary" onclick="exportData()"><span>📥</span> 导出数据</button></div>
+                <div class="card"><h3 style="display: flex; align-items: center; gap: 10px;"><span>📤</span> 数据导入</h3><p style="color: #666; margin-bottom: 15px;">从JSON文件导入数据，<strong style="color: #e74c3c;">将会覆盖现有数据</strong>，请谨慎操作。</p><div class="form-group"><label>选择JSON文件</label><input type="file" id="importFile" accept=".json" class="action-upload"></div><button class="btn btn-success" onclick="importData()"><span>📤</span> 导入数据</button></div>
+                <div class="card admin-only-card" style="border: 2px solid #e74c3c;"><h3 style="display: flex; align-items: center; gap: 10px; color: #e74c3c;"><span>⚠️</span> 危险操作</h3><p style="color: #666; margin-bottom: 15px;">以下操作将<strong style="color: #e74c3c;">永久删除</strong>所有数据，请谨慎操作！</p><button class="btn btn-danger action-admin-only" onclick="clearAllData()"><span>🗑️</span> 清除所有数据</button> <button class="btn btn-secondary action-admin-only" onclick="resetToDemoData()" style="margin-left: 10px;"><span>🔄</span> 重置为演示数据</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase配置
+        var SUPABASE_URL = 'https://br-pure-cub-fa650a3f.supabase2.aidap-global.cn-beijing.volces.com';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjMzNTI1NTEwODgsInJvbGUiOiJhbm9uIn0.N31CgH9pamcrcXtpCkIlOYg8gkiVIn5bOq1WgzQMFfs';
+        var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 全局变量
+        var customers = [];
+        var orders = [];
+        var users = [];
+        var currentUser = null;
+        var editingCustomerId = null;
+        var editingOrderId = null;
+        var editingOrderType = null;
+        var editingUserId = null;
+        var tempLogoUrl = '';
+        var tempOrderFiles = [];
+
+        // 默认用户
+        var defaultUsers = [
+            {
+                id: 1,
+                username: 'admin',
+                password: 'admin',
+                role: '管理员',
+                permissions: {
+                    edit: true,
+                    delete: true,
+                    upload: true,
+                    download: true,
+                    manageUsers: true
+                }
+            }
+        ];
+
+        // 订单状态配置
+        var orderStatusConfig = {
+            sample: ['pending', 'processing', 'completed', 'cancelled'],
+            design: ['pending', 'processing', 'completed', 'cancelled'],
+            formal: ['pending', 'splitting', 'ordered', 'producing', 'completed', 'cancelled'],
+            aftersale: ['pending', 'processing', 'completed', 'cancelled']
+        };
+
+        var statusLabels = {
+            pending: '待处理',
+            processing: '进行中',
+            splitting: '拆单中',
+            ordered: '已下单',
+            producing: '生产中',
+            completed: '已完成',
+            cancelled: '已取消'
+        };
+
+        var executorLabels = {
+            sample: '执行人',
+            design: '执行人',
+            formal: '拆单技术员',
+            aftersale: '拆单技术员'
+        };
+
+        // 数据存储
+        function saveData() {
+            try {
+                localStorage.setItem('cabinet_customers', JSON.stringify(customers));
+                localStorage.setItem('cabinet_orders', JSON.stringify(orders));
+                localStorage.setItem('cabinet_users', JSON.stringify(users));
+                console.log('数据已保存');
+            } catch (e) {
+                console.error('数据保存失败：', e);
+                alert('⚠️ 数据保存失败，可能是存储空间不足');
+            }
+        }
+
+        function loadData() {
+            try {
+                var savedCustomers = localStorage.getItem('cabinet_customers');
+                var savedOrders = localStorage.getItem('cabinet_orders');
+                var savedUsers = localStorage.getItem('cabinet_users');
+
+                if (savedCustomers) {
+                    customers = JSON.parse(savedCustomers);
+                } else {
+                    // 演示数据
+                    customers = [
+                        { id: 1, code: 'C001', region: '北京朝阳区', logo: '' },
+                        { id: 2, code: 'C002', region: '上海浦东新区', logo: '' },
+                        { id: 3, code: 'C003', region: '广州天河区', logo: '' }
+                    ];
+                }
+
+                if (savedOrders) {
+                    orders = JSON.parse(savedOrders);
+                } else {
+                    // 演示数据
+                    orders = [
+                        { id: 1, orderNo: 'SAMPLE001', type: 'sample', customerId: 1, content: '厨房橱柜打样-现代简约风格', executor: '张三', status: 'completed', files: [{name: '设计图.png', type: 'image/png', data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='}], createdAt: '2025-01-01' }
+                    ];
+                }
+
+                if (savedUsers) {
+                    users = JSON.parse(savedUsers);
+                } else {
+                    users = defaultUsers;
+                }
+
+                console.log('数据加载完成 - 客户:', customers.length, '订单:', orders.length, '用户:', users.length);
+            } catch (e) {
+                console.error('数据加载失败：', e);
+                // 使用默认数据
+                customers = [
+                    { id: 1, code: 'C001', region: '北京朝阳区', logo: '' },
+                    { id: 2, code: 'C002', region: '上海浦东新区', logo: '' },
+                    { id: 3, code: 'C003', region: '广州天河区', logo: '' }
+                ];
+                orders = [];
+                users = defaultUsers;
+            }
+        }
+
+        // 登录功能
+        function handleLogin() {
+            console.log('尝试登录...');
+            var username = document.getElementById('username').value.trim();
+            var password = document.getElementById('password').value.trim();
+
+            console.log('输入的用户名:', username);
+            console.log('当前用户列表:', users);
+
+            if (!username || !password) {
+                alert('❌ 请输入用户名和密码！');
+                return;
+            }
+
+            var user = users.find(function(u) {
+                return u.username === username && u.password === password;
+            });
+
+            console.log('找到的用户:', user);
+
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('currentUser').textContent = user.role;
+                applyPermissions();
+                saveData();
+                alert('✅ 登录成功！欢迎，' + user.role);
+                console.log('登录成功');
+            } else {
+                alert('❌ 用户名或密码错误！');
+                console.log('登录失败：用户名或密码错误');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            console.log('用户已退出');
+        }
+
+        // 权限控制
+        function hasPermission(permission) {
+            if (!currentUser) return false;
+            if (currentUser.username === 'admin') return true;
+            return currentUser.permissions[permission] === true;
+        }
+
+        function applyPermissions() {
+            document.querySelectorAll('.action-add, .action-edit, .action-delete, .action-upload, .action-download, .action-manageUsers').forEach(function(el) {
+                var action = el.classList.contains('action-add') ? 'edit' :
+                              el.classList.contains('action-edit') ? 'edit' :
+                              el.classList.contains('action-delete') ? 'delete' :
+                              el.classList.contains('action-upload') ? 'upload' :
+                              el.classList.contains('action-download') ? 'download' :
+                              el.classList.contains('action-manageUsers') ? 'manageUsers' : null;
+                if (action && !hasPermission(action)) {
+                    el.style.display = 'none';
+                } else {
+                    el.style.display = '';
+                }
+            });
+
+            // 只有admin用户可以看到危险操作按钮
+            document.querySelectorAll('.action-admin-only').forEach(function(el) {
+                if (currentUser && currentUser.username === 'admin') {
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            // 只有admin用户可以看到危险操作卡片
+            document.querySelectorAll('.admin-only-card').forEach(function(el) {
+                if (currentUser && currentUser.username === 'admin') {
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            console.log('权限应用完成');
+        }
+
+        // 导航切换
+        function switchTab(tabId) {
+            console.log('切换到标签页：', tabId);
+
+            // 移除所有tab的active状态
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.remove('active');
+            });
+
+            // 移除所有tab-content的active状态
+            document.querySelectorAll('.tab-content').forEach(function(c) {
+                c.classList.remove('active');
+            });
+
+            // 找到对应的tab按钮并设置为active
+            var tabButton = document.querySelector('.tab[onclick="switchTab(\'' + tabId + '\')"]');
+            if (tabButton) {
+                tabButton.classList.add('active');
+            }
+
+            // 激活对应的tab-content
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'customers') renderCustomers();
+            if (['sample', 'design', 'formal', 'aftersale'].includes(tabId)) renderOrders(tabId);
+            if (tabId === 'users') renderUsers();
+        }
+
+        // 仪表板更新
+        function updateDashboard() {
+            document.getElementById('totalCustomers').textContent = customers.length;
+            document.getElementById('totalSampleOrders').textContent = orders.filter(function(o) { return o.type === 'sample'; }).length;
+            document.getElementById('totalDesignOrders').textContent = orders.filter(function(o) { return o.type === 'design'; }).length;
+            document.getElementById('totalFormalOrders').textContent = orders.filter(function(o) { return o.type === 'formal'; }).length;
+            document.getElementById('totalAfterSaleOrders').textContent = orders.filter(function(o) { return o.type === 'aftersale'; }).length;
+        }
+
+        // 数据导出
+        function exportData() {
+            var data = {
+                customers: customers,
+                orders: orders,
+                users: users,
+                exportDate: new Date().toISOString()
+            };
+            var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'cabinet_system_backup_' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('✅ 数据导出成功！');
+        }
+
+        function importData() {
+            var fileInput = document.getElementById('importFile');
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert('❌ 请选择要导入的文件！');
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var data = JSON.parse(e.target.result);
+                    if (data.customers) customers = data.customers;
+                    if (data.orders) orders = data.orders;
+                    if (data.users) users = data.users;
+                    saveData();
+                    renderAllOrders();
+                    renderCustomers();
+                    renderUsers();
+                    updateDashboard();
+                    alert('✅ 数据导入成功！');
+                } catch (err) {
+                    alert('❌ 导入失败：文件格式错误！');
+                    console.error('导入错误：', err);
+                }
+            };
+            reader.readAsText(fileInput.files[0]);
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ 确认清空所有数据？\n\n此操作将删除所有客户、订单和用户数据（除了admin账号）！\n此操作不可恢复！')) {
+                customers = [];
+                orders = [];
+                users = defaultUsers;
+                localStorage.removeItem('cabinet_customers');
+                localStorage.removeItem('cabinet_orders');
+                localStorage.removeItem('cabinet_users');
+                saveData();
+                renderAllOrders();
+                renderCustomers();
+                renderUsers();
+                updateDashboard();
+                alert('✅ 所有数据已清空！');
+            }
+        }
+
+        function resetToDemoData() {
+            if (confirm('⚠️ 确认重置为演示数据？\n\n此操作将清空当前所有数据并加载演示数据！\n此操作不可恢复！')) {
+                customers = [
+                    { id: 1, code: 'C001', region: '北京朝阳区', logo: '' },
+                    { id: 2, code: 'C002', region: '上海浦东新区', logo: '' },
+                    { id: 3, code: 'C003', region: '广州天河区', logo: '' }
+                ];
+                orders = [
+                    { id: 1, orderNo: 'SAMPLE001', type: 'sample', customerId: 1, content: '厨房橱柜打样-现代简约风格', executor: '张三', status: 'completed', files: [{name: '设计图.png', type: 'image/png', data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='}], createdAt: '2025-01-01' }
+                ];
+                users = defaultUsers;
+                saveData();
+                renderAllOrders();
+                renderCustomers();
+                renderUsers();
+                updateDashboard();
+                alert('✅ 已重置为演示数据！');
+            }
+        }
+
+        // 客户管理
+        function showAddCustomerForm() {
+            editingCustomerId = null;
+            tempLogoUrl = '';
+            document.getElementById('customerCode').value = '';
+            document.getElementById('customerRegion').value = '';
+            document.getElementById('customerLogo').value = '';
+            document.getElementById('logoPreviewContainer').classList.add('hide');
+            document.getElementById('customerFormTitle').textContent = '添加客户';
+            document.getElementById('customerForm').classList.remove('hide');
+        }
+
+        function hideCustomerForm() {
+            document.getElementById('customerForm').classList.add('hide');
+        }
+
+        function previewLogo(input) {
+            if (!hasPermission('upload')) {
+                alert('❌ 没有上传权限！');
+                return;
+            }
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('logoPreview').src = e.target.result;
+                    document.getElementById('logoPreviewContainer').classList.remove('hide');
+                    tempLogoUrl = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function saveCustomer() {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+            var code = document.getElementById('customerCode').value.trim();
+            var region = document.getElementById('customerRegion').value.trim();
+
+            if (!code || !region) {
+                alert('❌ 请填写所有必填项！');
+                return;
+            }
+
+            var customer = {
+                id: editingCustomerId || Date.now(),
+                code: code,
+                region: region,
+                logo: tempLogoUrl
+            };
+
+            if (editingCustomerId) {
+                var index = customers.findIndex(function(c) { return c.id === editingCustomerId; });
+                customers[index] = customer;
+            } else {
+                customers.push(customer);
+            }
+
+            saveData();
+            renderCustomers();
+            hideCustomerForm();
+            alert(editingCustomerId ? '✅ 客户更新成功！' : '✅ 客户添加成功！');
+        }
+
+        function editCustomer(id) {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+            var customer = customers.find(function(c) { return c.id === id; });
+            if (!customer) return;
+
+            editingCustomerId = id;
+            tempLogoUrl = customer.logo || '';
+            document.getElementById('customerCode').value = customer.code;
+            document.getElementById('customerRegion').value = customer.region;
+            document.getElementById('customerFormTitle').textContent = '编辑客户';
+
+            if (customer.logo) {
+                document.getElementById('logoPreview').src = customer.logo;
+                document.getElementById('logoPreviewContainer').classList.remove('hide');
+            } else {
+                document.getElementById('logoPreviewContainer').classList.add('hide');
+            }
+            document.getElementById('customerForm').classList.remove('hide');
+        }
+
+        function deleteCustomer(id) {
+            if (!hasPermission('delete')) {
+                alert('❌ 没有删除权限！');
+                return;
+            }
+            if (orders.some(function(o) { return o.customerId === id; })) {
+                alert('❌ 无法删除：该客户存在关联订单。');
+                return;
+            }
+            if (confirm('⚠️ 确认删除此客户？此操作不可恢复！')) {
+                customers = customers.filter(function(c) { return c.id !== id; });
+                saveData();
+                renderCustomers();
+                alert('✅ 客户删除成功！');
+            }
+        }
+
+        function renderCustomers() {
+            if (customers.length === 0) {
+                document.getElementById('customerList').innerHTML = '<div class="empty-state"><p>暂无客户数据</p></div>';
+                return;
+            }
+
+            var html = customers.map(function(c) {
+                var logoHtml = c.logo ? '<img src="' + c.logo + '" class="logo-preview">' : '<div class="logo-preview" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 12px;">无Logo</div>';
+                return '<div class="card" style="display: flex; align-items: center; gap: 20px;"><div>' + logoHtml + '</div><div style="flex: 1;"><h3 style="font-size: 16px; color: #333; cursor: pointer; text-decoration: underline;" onclick="viewCustomerOrders(' + c.id + ')">📋 ' + c.code + '</h3><p>📍 ' + c.region + '</p></div><div><button class="btn btn-primary action-edit" data-id="' + c.id + '"><span>✏️</span> 编辑</button> <button class="btn btn-danger action-delete" data-id="' + c.id + '"><span>🗑️</span> 删除</button></div></div>';
+            }).join('');
+
+            document.getElementById('customerList').innerHTML = html;
+
+            document.querySelectorAll('#customerList .action-edit').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    editCustomer(parseInt(this.getAttribute('data-id')));
+                });
+                if (!hasPermission('edit')) btn.style.display = 'none';
+            });
+
+            document.querySelectorAll('#customerList .action-delete').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    deleteCustomer(parseInt(this.getAttribute('data-id')));
+                });
+                if (!hasPermission('delete')) btn.style.display = 'none';
+            });
+        }
+
+        function viewCustomerOrders(customerId) {
+            var customer = customers.find(function(c) { return c.id === customerId; });
+            if (!customer) {
+                alert('❌ 客户不存在！');
+                return;
+            }
+
+            var customerOrders = orders.filter(function(o) { return o.customerId === customerId; });
+
+            if (customerOrders.length === 0) {
+                alert('该客户暂无订单数据');
+                return;
+            }
+
+            var typeLabels = {sample: '打样', design: '设计报价', formal: '正式订单', aftersale: '售后服务'};
+            var html = '<div class="form-container"><h3>📋 ' + customer.code + ' 的所有订单</h3><div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;"><p><strong>📍 所属地区：</strong>' + customer.region + '</p><p><strong>📦 订单总数：</strong>' + customerOrders.length + '</p></div>';
+
+            var types = ['sample', 'design', 'formal', 'aftersale'];
+            types.forEach(function(type) {
+                var typeOrders = customerOrders.filter(function(o) { return o.type === type; });
+                if (typeOrders.length > 0) {
+                    html += '<div class="status-group"><h3>' + typeLabels[type] + ' <span class="status-count">' + typeOrders.length + '</span></h3>';
+                    html += typeOrders.map(function(o) {
+                        var cardHtml = '<div class="card"><h3 style="font-size: 18px;">📋 ' + o.orderNo + '</h3><p><strong>内容：</strong>' + o.content + '</p><div class="executor-info"><p><strong>' + executorLabels[type] + '：</strong>' + (o.executor || '-') + '</p></div>';
+
+                        var timeHtml = '<div class="time-info">';
+                        if (o.issueDate) timeHtml += '<p>📅 下发时间：' + o.issueDate + '</p>';
+                        if (type === 'formal') {
+                            if (o.splitDate) timeHtml += '<p>📅 拆单时间：' + o.splitDate + '</p>';
+                            if (o.orderedDate) timeHtml += '<p>📅 下单时间：' + o.orderedDate + '</p>';
+                            if (o.produceDate) timeHtml += '<p>📅 生产时间：' + o.produceDate + '</p>';
+                        }
+                        if (o.estimatedDate) timeHtml += '<p>📅 预计完成：' + o.estimatedDate + '</p>';
+                        if (o.completedDate) timeHtml += '<p>📅 完成时间：' + o.completedDate + '</p>';
+                        timeHtml += '</div>';
+                        cardHtml += timeHtml;
+
+                        cardHtml += '<p><strong>状态：</strong><span class="status-badge status-' + o.status + '">' + statusLabels[o.status] + '</span></p>';
+
+                        if (o.files && o.files.length > 0) {
+                            cardHtml += '<div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;"><p style="margin-bottom: 10px; font-weight: 600; color: #666;">📎 附件文件：</p>';
+                            cardHtml += o.files.map(function(f) {
+                                return '<div class="file-preview"><a href="' + f.data + '" download="' + f.name + '" class="action-download"><span>📎</span> <span>' + f.name + '</span></a></div>';
+                            }).join('');
+                            cardHtml += '</div>';
+                        }
+
+                        if (o.notes) {
+                            cardHtml += '<p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; color: #856404;">📝 ' + o.notes + '</p>';
+                        }
+
+                        cardHtml += '</div>';
+                        return cardHtml;
+                    }).join('');
+                    html += '</div>';
+                }
+            });
+
+            html += '<div style="margin-top: 25px;"><button class="btn btn-secondary" onclick="document.getElementById(\'customerOrdersView\').innerHTML=\'\'; document.getElementById(\'customerOrdersView\').style.display=\'none\';"><span>✕</span> 关闭</button></div></div>';
+
+            var viewContainer = document.getElementById('customerOrdersView');
+            if (!viewContainer) {
+                viewContainer = document.createElement('div');
+                viewContainer.id = 'customerOrdersView';
+                viewContainer.className = 'tab-content active';
+                document.getElementById('customers').appendChild(viewContainer);
+            }
+            viewContainer.innerHTML = html;
+            viewContainer.style.display = 'block';
+            viewContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function filterCustomers() {
+            var search = document.getElementById('searchCustomers').value.toLowerCase().trim();
+            if (!search) {
+                renderCustomers();
+                return;
+            }
+
+            var filtered = customers.filter(function(c) {
+                return c.code.toLowerCase().includes(search) || c.region.toLowerCase().includes(search);
+            });
+
+            if (filtered.length === 0) {
+                document.getElementById('customerList').innerHTML = '<div class="empty-state"><p>未找到匹配的客户</p></div>';
+                return;
+            }
+
+            var html = filtered.map(function(c) {
+                var logoHtml = c.logo ? '<img src="' + c.logo + '" class="logo-preview">' : '<div class="logo-preview" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 12px;">无Logo</div>';
+                return '<div class="card" style="display: flex; align-items: center; gap: 20px;"><div>' + logoHtml + '</div><div style="flex: 1;"><h3 style="font-size: 16px; color: #333; cursor: pointer; text-decoration: underline;" onclick="viewCustomerOrders(' + c.id + ')">📋 ' + c.code + '</h3><p>📍 ' + c.region + '</p></div><div><button class="btn btn-primary action-edit" data-id="' + c.id + '"><span>✏️</span> 编辑</button> <button class="btn btn-danger action-delete" data-id="' + c.id + '"><span>🗑️</span> 删除</button></div></div>';
+            }).join('');
+
+            document.getElementById('customerList').innerHTML = html;
+
+            document.querySelectorAll('#customerList .action-edit').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    editCustomer(parseInt(this.getAttribute('data-id')));
+                });
+                if (!hasPermission('edit')) btn.style.display = 'none';
+            });
+
+            document.querySelectorAll('#customerList .action-delete').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    deleteCustomer(parseInt(this.getAttribute('data-id')));
+                });
+                if (!hasPermission('delete')) btn.style.display = 'none';
+            });
+        }
+
+        // 订单管理（由于代码较长，这里包含核心功能）
+        function showAddOrderForm(type) {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+
+            editingOrderId = null;
+            editingOrderType = type;
+            tempOrderFiles = [];
+
+            var typeLabels = {sample: '打样', design: '设计报价', formal: '正式订单', aftersale: '售后服务'};
+            var statuses = orderStatusConfig[type];
+
+            var customerOptions = '<option value="">请选择客户</option>';
+            if (customers && customers.length > 0) {
+                customerOptions += customers.map(function(c) {
+                    return '<option value="' + c.id + '">' + c.code + ' (' + (c.region || '') + ')</option>';
+                }).join('');
+            } else {
+                customerOptions += '<option value="" disabled>暂无客户数据</option>';
+            }
+
+            var statusOptions = statuses.map(function(s) {
+                return '<option value="' + s + '">' + statusLabels[s] + '</option>';
+            }).join('');
+
+            var timeFields = '';
+            if (type === 'sample' || type === 'design') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate"></div>';
+            } else if (type === 'formal') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate"></div><div class="form-group"><label>拆单时间</label><input type="date" id="orderSplitDate"></div><div class="form-group"><label>下单时间</label><input type="date" id="orderOrderedDate"></div><div class="form-group"><label>生产时间</label><input type="date" id="orderProduceDate"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate"></div>';
+            } else if (type === 'aftersale') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate"></div>';
+            }
+
+            var formHtml = '<div class="form-container"><h3>创建' + typeLabels[type] + '</h3><div class="form-group"><label>订单号 *</label><input type="text" id="orderNo" placeholder="如：' + type.toUpperCase() + '001"><p class="hint">建议使用大写字母+数字，如：FORMAL001</p></div><div class="form-group"><label>客户 *</label><select id="orderCustomer">' + customerOptions + '</select><p class="hint">请先在客户管理中添加客户</p></div><div class="form-group"><label>订单内容 *</label><textarea id="orderContent" placeholder="请详细描述订单内容、规格要求等"></textarea></div><div class="form-group"><label>' + executorLabels[type] + ' *</label><input type="text" id="orderExecutor" placeholder="请输入执行人员姓名"></div><div class="form-group"><label>状态 *</label><select id="orderStatus">' + statusOptions + '</select></div>' + timeFields + '<div class="form-group"><label>上传文件</label><div class="upload-area" onclick="document.getElementById(\'orderFiles\').click()"><div style="font-size: 32px; color: #667eea;">📎</div><p>点击或拖拽文件到此处上传</p><p style="font-size: 12px; color: #999;">支持多个文件，上传后会显示在下方</p></div><input type="file" id="orderFiles" multiple class="action-upload hide" onchange="previewOrderFiles(this)"></div><div id="orderFilePreview" class="file-preview-container"></div><div class="form-group"><label>备注</label><textarea id="orderNotes" placeholder="订单备注信息、特殊要求等"></textarea></div><div style="margin-top: 25px; display: flex; gap: 10px;"><button id="btnSaveOrder_' + type + '" class="btn btn-primary action-edit"><span>💾</span> 保存订单</button><button id="btnCancelOrder_' + type + '" class="btn btn-secondary"><span>✕</span> 取消</button></div></div>';
+
+            document.getElementById(type + 'OrderForm').innerHTML = formHtml;
+            document.getElementById(type + 'OrderForm').scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('btnSaveOrder_' + type).addEventListener('click', saveOrder);
+            document.getElementById('btnCancelOrder_' + type).addEventListener('click', function() {
+                document.getElementById(type + 'OrderForm').innerHTML = '';
+            });
+        }
+
+        function previewOrderFiles(input) {
+            if (!hasPermission('upload')) {
+                alert('❌ 没有上传权限！');
+                return;
+            }
+
+            if (!input.files || input.files.length === 0) return;
+
+            var previewContainer = document.getElementById('orderFilePreview');
+            if (!previewContainer) return;
+
+            for (var i = 0; i < input.files.length; i++) {
+                (function(file) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        var fileData = {
+                            name: file.name,
+                            type: file.type,
+                            data: e.target.result
+                        };
+                        tempOrderFiles.push(fileData);
+
+                        var preview = document.createElement('div');
+                        preview.className = 'file-preview';
+                        preview.innerHTML = '<span>📎</span> <span>' + file.name + '</span><span style="cursor: pointer; color: #e74c3c; margin-left: 8px;" onclick="removeFile(' + (tempOrderFiles.length - 1) + ')">✕</span>';
+                        previewContainer.appendChild(preview);
+                    };
+                    reader.readAsDataURL(file);
+                })(input.files[i]);
+            }
+        }
+
+        function removeFile(index) {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+            tempOrderFiles.splice(index, 1);
+
+            var previewContainer = document.getElementById('orderFilePreview');
+            if (previewContainer) {
+                previewContainer.innerHTML = tempOrderFiles.map(function(f, idx) {
+                    return '<div class="file-preview"><span>📎</span> <span>' + f.name + '</span><span style="cursor: pointer; color: #e74c3c; margin-left: 8px;" onclick="removeFile(' + idx + ')">✕</span></div>';
+                }).join('');
+            }
+        }
+
+        function saveOrder() {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+
+            var orderNo = document.getElementById('orderNo').value.trim();
+            var customerId = parseInt(document.getElementById('orderCustomer').value);
+            var content = document.getElementById('orderContent').value.trim();
+            var executor = document.getElementById('orderExecutor').value.trim();
+
+            if (!orderNo) { alert('❌ 请填写订单号！'); return; }
+            if (!customerId) { alert('❌ 请选择客户！'); return; }
+            if (!content) { alert('❌ 请填写订单内容！'); return; }
+            if (!executor) { alert('❌ 请填写执行人员！'); return; }
+
+            var order = {
+                id: editingOrderId || Date.now(),
+                orderNo: orderNo,
+                type: editingOrderType,
+                customerId: customerId,
+                content: content,
+                executor: executor,
+                status: document.getElementById('orderStatus').value,
+                issueDate: document.getElementById('orderIssueDate') ? document.getElementById('orderIssueDate').value : '',
+                estimatedDate: document.getElementById('orderEstimatedDate') ? document.getElementById('orderEstimatedDate').value : '',
+                completedDate: document.getElementById('orderCompletedDate') ? document.getElementById('orderCompletedDate').value : '',
+                files: tempOrderFiles || [],
+                notes: document.getElementById('orderNotes').value || '',
+                createdAt: editingOrderId ? orders.find(function(o) { return o.id === editingOrderId; }).createdAt : new Date().toISOString()
+            };
+
+            if (editingOrderType === 'formal') {
+                order.splitDate = document.getElementById('orderSplitDate') ? document.getElementById('orderSplitDate').value : '';
+                order.orderedDate = document.getElementById('orderOrderedDate') ? document.getElementById('orderOrderedDate').value : '';
+                order.produceDate = document.getElementById('orderProduceDate') ? document.getElementById('orderProduceDate').value : '';
+            }
+
+            if (editingOrderId) {
+                var index = orders.findIndex(function(o) { return o.id === editingOrderId; });
+                if (index > -1) orders[index] = order;
+            } else {
+                orders.push(order);
+            }
+
+            saveData();
+            renderOrders(editingOrderType);
+            document.getElementById(editingOrderType + 'OrderForm').innerHTML = '';
+            updateDashboard();
+            alert(editingOrderId ? '✅ 订单更新成功！' : '✅ 订单创建成功！');
+        }
+
+        function editOrder(id, type) {
+            if (!hasPermission('edit')) {
+                alert('❌ 没有编辑权限！');
+                return;
+            }
+
+            var order = orders.find(function(o) { return o.id === id; });
+            if (!order) return;
+
+            editingOrderId = id;
+            editingOrderType = type;
+            tempOrderFiles = order.files || [];
+
+            var typeLabels = {sample: '打样', design: '设计报价', formal: '正式订单', aftersale: '售后服务'};
+            var statuses = orderStatusConfig[type];
+
+            var customerOptions = customers.map(function(c) {
+                return '<option value="' + c.id + '" ' + (order.customerId === c.id ? 'selected' : '') + '>' + c.code + ' (' + (c.region || '') + ')</option>';
+            }).join('');
+
+            var statusOptions = statuses.map(function(s) {
+                return '<option value="' + s + '" ' + (order.status === s ? 'selected' : '') + '>' + statusLabels[s] + '</option>';
+            }).join('');
+
+            var timeFields = '';
+            if (type === 'sample' || type === 'design') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate" value="' + (order.issueDate || '') + '"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate" value="' + (order.estimatedDate || '') + '"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate" value="' + (order.completedDate || '') + '"></div>';
+            } else if (type === 'formal') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate" value="' + (order.issueDate || '') + '"></div><div class="form-group"><label>拆单时间</label><input type="date" id="orderSplitDate" value="' + (order.splitDate || '') + '"></div><div class="form-group"><label>下单时间</label><input type="date" id="orderOrderedDate" value="' + (order.orderedDate || '') + '"></div><div class="form-group"><label>生产时间</label><input type="date" id="orderProduceDate" value="' + (order.produceDate || '') + '"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate" value="' + (order.estimatedDate || '') + '"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate" value="' + (order.completedDate || '') + '"></div>';
+            } else if (type === 'aftersale') {
+                timeFields = '<div class="form-group"><label>订单下发时间</label><input type="date" id="orderIssueDate" value="' + (order.issueDate || '') + '"></div><div class="form-group"><label>预计完成时间</label><input type="date" id="orderEstimatedDate" value="' + (order.estimatedDate || '') + '"></div><div class="form-group"><label>完成时间</label><input type="date" id="orderCompletedDate" value="' + (order.completedDate || '') + '"></div>';
+            }
+
+            var filePreviewHtml = '';
+            if (tempOrderFiles.length > 0) {
+                filePreviewHtml = tempOrderFiles.map(function(f, index) {
+                    return '<div class="file-preview"><a href="' + f.data + '" download="' + f.name + '" class="action-download"><span>📎</span> <span>' + f.name + '</span></a><span style="cursor: pointer; color: #e74c3c; margin-left: 8px;" onclick="removeFile(' + index + ')">✕</span></div>';
+                }).join('');
+            }
+
+            var formHtml = '<div class="form-container"><h3>编辑' + typeLabels[type] + '</h3><div class="form-group"><label>订单号 *</label><input type="text" id="orderNo" value="' + order.orderNo + '"></div><div class="form-group"><label>客户 *</label><select id="orderCustomer">' + customerOptions + '</select></div><div class="form-group"><label>订单内容 *</label><textarea id="orderContent">' + order.content + '</textarea></div><div class="form-group"><label>' + executorLabels[type] + ' *</label><input type="text" id="orderExecutor" value="' + (order.executor || '') + '"></div><div class="form-group"><label>状态 *</label><select id="orderStatus">' + statusOptions + '</select></div>' + timeFields + '<div class="form-group"><label>上传文件</label><div class="upload-area" onclick="document.getElementById(\'orderFiles\').click()"><div style="font-size: 32px; color: #667eea;">📎</div><p>点击上传新文件（追加到现有文件）</p></div><input type="file" id="orderFiles" multiple class="action-upload hide" onchange="previewOrderFiles(this)"></div><div id="orderFilePreview" class="file-preview-container">' + filePreviewHtml + '</div><div class="form-group"><label>备注</label><textarea id="orderNotes">' + (order.notes || '') + '</textarea></div><div style="margin-top: 25px; display: flex; gap: 10px;"><button id="btnSaveOrder_' + type + '" class="btn btn-primary action-edit"><span>💾</span> 保存修改</button><button id="btnCancelOrder_' + type + '" class="btn btn-secondary"><span>✕</span> 取消</button></div></div>';
+
+            document.getElementById(type + 'OrderForm').innerHTML = formHtml;
+            document.getElementById(type + 'OrderForm').scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('btnSaveOrder_' + type).addEventListener('click', saveOrder);
+            document.getElementById('btnCancelOrder_' + type).addEventListener('click', function() {
+                document.getElementById(type + 'OrderForm').innerHTML = '';
+            });
+        }
+
+        function deleteOrder(id, type) {
+            if (!hasPermission('delete')) {
+                alert('❌ 没有删除权限！');
+                return;
+            }
+            if (confirm('⚠️ 确认删除此订单？此操作不可恢复！')) {
+                orders = orders.filter(function(o) { return o.id !== id; });
+                saveData();
+                renderOrders(type);
+                updateDashboard();
+                alert('✅ 订单删除成功！');
+            }
+        }
+
+        function renderOrders(type) {
+            var typeLabels = {sample: '打样', design: '设计报价', formal: '正式订单', aftersale: '售后服务'};
+            var typeOrders = orders.filter(function(o) { return o.type === type; });
+
+            if (typeOrders.length === 0) {
+                document.getElementById(type + 'Orders').innerHTML = '<div class="empty-state"><p>暂无订单数据</p></div>';
+                return;
+            }
+
+            var statuses = orderStatusConfig[type];
+            var html = '';
+
+            statuses.forEach(function(status) {
+                var statusOrders = typeOrders.filter(function(o) { return o.status === status; });
+                if (statusOrders.length > 0) {
+                    html += '<div class="status-group"><h3>' + statusLabels[status] + ' <span class="status-count">' + statusOrders.length + '</span></h3>';
+                    html += statusOrders.map(function(o) {
+                        var customer = customers.find(function(c) { return c.id === o.customerId; });
+
+                        var cardHtml = '<div class="card"><h3 style="font-size: 18px;">📋 ' + o.orderNo + '</h3><p><strong>客户：</strong>' + (customer ? customer.code : '未知') + '</p><p><strong>内容：</strong>' + o.content + '</p><div class="executor-info"><p><strong>' + executorLabels[type] + '：</strong>' + (o.executor || '-') + '</p></div>';
+
+                        var timeHtml = '<div class="time-info">';
+                        if (o.issueDate) timeHtml += '<p>📅 下发时间：' + o.issueDate + '</p>';
+                        if (type === 'formal') {
+                            if (o.splitDate) timeHtml += '<p>📅 拆单时间：' + o.splitDate + '</p>';
+                            if (o.orderedDate) timeHtml += '<p>📅 下单时间：' + o.orderedDate + '</p>';
+                            if (o.produceDate) timeHtml += '<p>📅 生产时间：' + o.produceDate + '</p>';
+                        }
+                        if (o.estimatedDate) timeHtml += '<p>📅 预计完成：' + o.estimatedDate + '</p>';
+                        if (o.completedDate) timeHtml += '<p>📅 完成时间：' + o.completedDate + '</p>';
+                        timeHtml += '</div>';
+                        cardHtml += timeHtml;
+
+                        cardHtml += '<p><strong>状态：</strong><span class="status-badge status-' + o.status + '">' + statusLabels[o.status] + '</span></p>';
+
+                        if (o.files && o.files.length > 0) {
+                            cardHtml += '<div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;"><p style="margin-bottom: 10px; font-weight: 600; color: #666;">📎 附件文件：</p>';
+                            cardHtml += o.files.map(function(f) {
+                                return '<div class="file-preview"><a href="' + f.data + '" download="' + f.name + '" class="action-download"><span>📎</span> <span>' + f.name + '</span></a></div>';
+                            }).join('');
+                            cardHtml += '</div>';
+                        }
+
+                        if (o.notes) {
+                            cardHtml += '<p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; color: #856404;">📝 ' + o.notes + '</p>';
+                        }
+
+                        var statusOptions = orderStatusConfig[type].map(function(s) {
+                            return '<option value="' + s + '" ' + (o.status === s ? 'selected' : '') + '>' + statusLabels[s] + '</option>';
+                        }).join('');
+
+                        cardHtml += '<div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;"><button class="btn btn-primary action-edit" data-id="' + o.id + '" data-type="' + type + '"><span>✏️</span> 编辑</button><button class="btn btn-danger action-delete" data-id="' + o.id + '" data-type="' + type + '"><span>🗑️</span> 删除</button><select class="status-select action-edit" data-order-id="' + o.id + '" data-order-type="' + type + '" style="padding: 10px; border: 2px solid #e1e8ed; border-radius: 8px; font-size: 14px;">' + statusOptions + '</select></div>';
+
+                        cardHtml += '</div>';
+                        return cardHtml;
+                    }).join('');
+                    html += '</div>';
+                }
+            });
+
+            document.getElementById(type + 'Orders').innerHTML = html;
+
+            document.querySelectorAll('#' + type + 'Orders .action-edit').forEach(function(btn) {
+                if (btn.classList.contains('status-select')) {
+                    var orderId = parseInt(btn.getAttribute('data-order-id'));
+                    var orderType = btn.getAttribute('data-order-type');
+
+                    btn.addEventListener('change', function() {
+                        if (!hasPermission('edit')) {
+                            alert('❌ 没有编辑权限！');
+                            this.value = orders.find(function(o) { return o.id === orderId && o.type === orderType; }).status;
+                            return;
+                        }
+
+                        var newStatus = this.value;
+                        var orderIndex = orders.findIndex(function(o) { return o.id === orderId && o.type === orderType; });
+
+                        if (orderIndex > -1) {
+                            orders[orderIndex].status = newStatus;
+                            saveData();
+                            renderOrders(orderType);
+                            updateDashboard();
+                            alert('✅ 状态已更新为：' + statusLabels[newStatus]);
+                        }
+                    });
+
+                    if (!hasPermission('edit')) btn.style.display = 'none';
+                } else {
+                    btn.addEventListener('click', function() {
+                        editOrder(parseInt(this.getAttribute('data-id')), this.getAttribute('data-type'));
+                    });
+                    if (!hasPermission('edit')) btn.style.display = 'none';
+                }
+            });
+
+            document.querySelectorAll('#' + type + 'Orders .action-delete').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    deleteOrder(parseInt(this.getAttribute('data-id')), this.getAttribute('data-type'));
+                });
+                if (!hasPermission('delete')) btn.style.display = 'none';
+            });
+
+            setTimeout(function() {
+                document.querySelectorAll('#' + type + 'Orders .action-download').forEach(function(btn) {
+                    if (!hasPermission('download')) btn.style.display = 'none';
+                });
+            }, 100);
+        }
+
+        function filterOrders(type) {
+            var searchInput = document.getElementById('search' + type.charAt(0).toUpperCase() + type.slice(1));
+            if (!searchInput) return;
+
+            var search = searchInput.value.toLowerCase().trim();
+            if (!search) {
+                renderOrders(type);
+                return;
+            }
+
+            var typeOrders = orders.filter(function(o) { return o.type === type; });
+            var filtered = typeOrders.filter(function(o) {
+                return o.orderNo.toLowerCase().includes(search) || o.content.toLowerCase().includes(search);
+            });
+
+            var originalOrders = orders;
+            orders = filtered;
+            renderOrders(type);
+            orders = originalOrders;
+        }
+
+        function renderAllOrders() {
+            var types = ['sample', 'design', 'formal', 'aftersale'];
+            types.forEach(renderOrders);
+        }
+
+        // 用户管理
+        function showAddUserForm() {
+            if (!hasPermission('manageUsers')) {
+                alert('❌ 没有用户管理权限！');
+                return;
+            }
+            editingUserId = null;
+            document.getElementById('userName').value = '';
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userRole').value = '';
+            document.getElementById('permEdit').checked = false;
+            document.getElementById('permDelete').checked = false;
+            document.getElementById('permUpload').checked = false;
+            document.getElementById('permDownload').checked = false;
+            document.getElementById('passwordLabel').textContent = '*';
+            document.getElementById('passwordHint').textContent = '新用户必须设置密码';
+            document.getElementById('userFormTitle').textContent = '添加用户';
+            document.getElementById('userForm').classList.remove('hide');
+        }
+
+        function saveUser() {
+            if (!hasPermission('manageUsers')) {
+                alert('❌ 没有用户管理权限！');
+                return;
+            }
+            var username = document.getElementById('userName').value.trim();
+            var role = document.getElementById('userRole').value.trim();
+            var password = document.getElementById('userPassword').value.trim();
+
+            if (!username || !role) {
+                alert('❌ 请填写用户名和角色！');
+                return;
+            }
+
+            var user = {
+                id: editingUserId || Date.now(),
+                username: username,
+                role: role,
+                permissions: {
+                    edit: document.getElementById('permEdit').checked,
+                    delete: document.getElementById('permDelete').checked,
+                    upload: document.getElementById('permUpload').checked,
+                    download: document.getElementById('permDownload').checked,
+                    manageUsers: username === 'admin'
+                }
+            };
+
+            if (password) user.password = password;
+
+            if (editingUserId) {
+                var index = users.findIndex(function(u) { return u.id === editingUserId; });
+                if (!password) user.password = users[index].password;
+                users[index] = user;
+            } else {
+                if (!password) {
+                    alert('❌ 新用户必须设置密码！');
+                    return;
+                }
+                users.push(user);
+            }
+
+            saveData();
+            renderUsers();
+            document.getElementById('userForm').classList.add('hide');
+            alert(editingUserId ? '✅ 用户更新成功！' : '✅ 用户添加成功！');
+        }
+
+        function deleteUser(id) {
+            if (!hasPermission('manageUsers')) {
+                alert('❌ 没有用户管理权限！');
+                return;
+            }
+            var user = users.find(function(u) { return u.id === id; });
+            if (user.username === 'admin') {
+                alert('❌ 无法删除管理员账号！');
+                return;
+            }
+            if (confirm('⚠️ 确认删除此用户？此操作不可恢复！')) {
+                users = users.filter(function(u) { return u.id !== id; });
+                saveData();
+                renderUsers();
+                alert('✅ 用户删除成功！');
+            }
+        }
+
+        function renderUsers() {
+            if (users.length === 0) {
+                document.getElementById('userList').innerHTML = '<div class="empty-state"><p>暂无用户</p></div>';
+                return;
+            }
+
+            var html = users.map(function(u) {
+                var permissions = [];
+                if (u.permissions.edit) permissions.push('编辑');
+                if (u.permissions.delete) permissions.push('删除');
+                if (u.permissions.upload) permissions.push('上传');
+                if (u.permissions.download) permissions.push('下载');
+                if (u.permissions.manageUsers) permissions.push('用户管理');
+
+                var buttons = u.username !== 'admin' ? '<button class="btn btn-danger" onclick="deleteUser(' + u.id + ')"><span>🗑️</span> 删除</button>' : '';
+
+                return '<div class="card"><h3 style="font-size: 16px; color: #333;">👤 ' + u.username + '</h3><p><strong>角色：</strong>' + u.role + '</p><p><strong>权限：</strong>' + (permissions.length ? permissions.join('、') : '无') + '</p>' + buttons + '</div>';
+            }).join('');
+
+            document.getElementById('userList').innerHTML = html;
+        }
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，开始初始化...');
+            loadData();
+            renderAllOrders();
+            renderCustomers();
+            renderUsers();
+            updateDashboard();
+            console.log('初始化完成');
+        });
+    </script>
+</body>
+</html>
