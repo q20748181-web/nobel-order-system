@@ -1,13 +1,14 @@
-"""
-将橱柜订单管理系统上传到对象存储，生成永久可访问的URL
-"""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""上传HTML文件到对象存储并生成访问链接"""
+
 import os
 from coze_coding_dev_sdk.s3 import S3SyncStorage
 
-def upload_system_to_storage():
-    """上传系统到对象存储"""
-    
-    # 初始化存储客户端
+def upload_html():
+    """上传HTML文件并生成访问链接"""
+
+    # 初始化对象存储客户端
     storage = S3SyncStorage(
         endpoint_url=os.getenv("COZE_BUCKET_ENDPOINT_URL"),
         access_key="",
@@ -15,35 +16,46 @@ def upload_system_to_storage():
         bucket_name=os.getenv("COZE_BUCKET_NAME"),
         region="cn-beijing",
     )
-    
-    # 读取HTML文件
-    html_file_path = "/workspace/projects/assets/cabinet_order_system_with_demo.html"
-    
-    with open(html_file_path, 'r', encoding='utf-8') as f:
-        html_content = f.read().encode('utf-8')
-    
-    # 上传文件
-    print("正在上传系统到对象存储...")
-    key = storage.upload_file(
-        file_content=html_content,
-        file_name="cabinet_order_system/index.html",
-        content_type="text/html",
-    )
-    
-    print(f"✅ 上传成功！")
-    print(f"文件 key: {key}")
-    
-    # 生成永久访问URL（有效期30天）
-    access_url = storage.generate_presigned_url(
-        key=key,
-        expire_time=2592000,  # 30天
-    )
-    
-    print(f"\n🌐 访问地址：")
-    print(f"{access_url}")
-    print(f"\n⚠️ 注意：此链接有效期30天，如需长期使用请重新生成")
-    
-    return access_url
+
+    # HTML文件路径
+    html_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "assets", "cabinet_system_v14.html")
+
+    if not os.path.exists(html_path):
+        print(f"❌ 文件不存在: {html_path}")
+        return None
+
+    try:
+        # 使用流式上传
+        print("📤 正在上传文件到对象存储...")
+        with open(html_path, "rb") as f:
+            key = storage.stream_upload_file(
+                fileobj=f,
+                file_name="cabinet_system_v14.html",
+                content_type="text/html",
+            )
+
+        print(f"✅ 上传成功！")
+        print(f"📂 对象键: {key}")
+
+        # 生成预签名URL（有效期7天 = 604800秒）
+        url = storage.generate_presigned_url(
+            key=key,
+            expire_time=604800  # 7天
+        )
+
+        print(f"\n🔗 访问链接:")
+        print(f"{url}")
+        print(f"\n⏰ 链接有效期: 7天")
+        print(f"\n💡 提示:")
+        print(f"  - 链接有效期7天，过期后需要重新生成")
+        print(f"  - 可以直接在浏览器中打开此链接访问系统")
+        print(f"  - 建议收藏此链接方便后续访问")
+
+        return url
+
+    except Exception as e:
+        print(f"❌ 上传失败: {str(e)}")
+        return None
 
 if __name__ == "__main__":
-    url = upload_system_to_storage()
+    upload_html()
