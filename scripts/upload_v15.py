@@ -1,56 +1,60 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-上传V15版本（在演示数据中添加示例文件）到对象存储
-"""
+"""上传v15版本HTML文件到对象存储"""
 
 import os
 from coze_coding_dev_sdk.s3 import S3SyncStorage
 
-# 初始化存储客户端
-storage = S3SyncStorage(
-    endpoint_url=os.getenv("COZE_BUCKET_ENDPOINT_URL"),
-    access_key="",
-    secret_key="",
-    bucket_name=os.getenv("COZE_BUCKET_NAME"),
-    region="cn-beijing",
-)
+def upload_v15():
+    """上传v15版本HTML文件并生成访问链接"""
 
-print("正在上传V15版本（在演示数据中添加示例文件）...")
+    storage = S3SyncStorage(
+        endpoint_url=os.getenv("COZE_BUCKET_ENDPOINT_URL"),
+        access_key="",
+        secret_key="",
+        bucket_name=os.getenv("COZE_BUCKET_NAME"),
+        region="cn-beijing",
+    )
 
-try:
-    # 读取HTML文件
-    with open('assets/cabinet_system_v13_fixed.html', 'rb') as f:
-        file_content = f.read()
-    
-    # 上传文件
-    file_key = storage.upload_file(
-        file_content=file_content,
-        file_name="cabinet_system_v15.html",
-        content_type="text/html; charset=utf-8",
-    )
-    
-    print(f"✅ 上传成功！")
-    print(f"   文件Key: {file_key}")
-    
-    # 生成预签名 URL（有效期10年）
-    url = storage.generate_presigned_url(
-        key=file_key,
-        expire_time=315360000  # 10年
-    )
-    
-    print(f"\n🔗 访问链接 (有效期10年):")
-    print(f"\n{url}")
-    print(f"\n📋 默认登录账号:")
-    print(f"   用户名: admin")
-    print(f"   密码: admin")
-    print(f"\n🆕 本次更新:")
-    print(f"   ✅ 在演示数据中添加示例文件")
-    print(f"   ✅ 订单列表中显示文件区域")
-    print(f"   ✅ 文件下载按钮可见")
-    print(f"   ✅ 清空本地数据后可重新加载示例数据")
-    
-except Exception as e:
-    print(f"❌ 上传失败: {e}")
-    import traceback
-    traceback.print_exc()
+    html_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", "/workspace/projects"), "assets", "cabinet_system_v15.html")
+
+    if not os.path.exists(html_path):
+        print(f"❌ 文件不存在: {html_path}")
+        return None
+
+    try:
+        print("📤 正在上传 v15 版本...")
+        with open(html_path, "rb") as f:
+            key = storage.stream_upload_file(
+                fileobj=f,
+                file_name="cabinet_system_v15.html",
+                content_type="text/html",
+            )
+
+        print(f"✅ 上传成功！")
+        print(f"📂 对象键: {key}")
+
+        url = storage.generate_presigned_url(
+            key=key,
+            expire_time=604800  # 7天
+        )
+
+        print(f"\n🔗 访问链接:")
+        print(f"{url}")
+        print(f"\n⏰ 链接有效期: 7天")
+        print(f"\n✨ v15 版本更新内容:")
+        print(f"  - ✅ 修复了客户选择显示 undefined 的问题")
+        print(f"  - ✅ 优化了UI设计，更现代化")
+        print(f"  - ✅ 修复了所有按钮点击问题")
+        print(f"  - ✅ 改进了表单标题和提示文字")
+        print(f"  - ✅ 优化了文件上传和下载功能")
+        print(f"  - ✅ 添加了更好的视觉反馈")
+
+        return url
+
+    except Exception as e:
+        print(f"❌ 上传失败: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    upload_v15()
