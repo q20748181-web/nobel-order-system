@@ -4,7 +4,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-from storage.database import db
+from storage.cabinet_db import db
 
 
 # ==================== 页面配置 ====================
